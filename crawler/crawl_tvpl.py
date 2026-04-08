@@ -55,6 +55,7 @@ def crawl_multiple_documents():
                         #build folder path theo type
                         folder_path = os.path.join(base_dir, "..", "data", "raw", doc["type"])
                         
+                        # create dict if not exist
                         os.makedirs(folder_path, exist_ok=True)
 
                         file_path = os.path.join(folder_path, f"{doc['name']}.txt")
