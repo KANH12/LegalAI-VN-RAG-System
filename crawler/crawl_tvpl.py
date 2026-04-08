@@ -2,53 +2,78 @@ from playwright.sync_api import sync_playwright
 import time
 import os
 
-def crawl_legal_ai_vn():
-    print("--- [LegalAI-VN] TASK: EXTRACT ROAD TRAFFIC LAW 2008 ---")
-    
+#1. List documents
+DOCUMENTS = [
+    {
+        "name": "law_2008",
+        "url": "https://thuvienphapluat.vn/van-ban/Giao-thong-Van-tai/Luat-giao-thong-duong-bo-2008-23-2008-QH12-82203.aspx",
+        "type": "base"
+    },
+    {
+        "name": "law_2024",
+        "url": "https://thuvienphapluat.vn/van-ban/Giao-thong-Van-tai/Luat-Trat-tu-an-toan-giao-thong-duong-bo-2024-613582.aspx",
+        "type": "current"
+    },
+    {
+        "name": "decree_100_2019",
+        "url": "https://thuvienphapluat.vn/van-ban/Giao-thong-Van-tai/Nghi-dinh-100-2019-ND-CP-xu-phat-vi-pham-hanh-chinh-trong-linh-vuc-giao-thong-duong-bo-430522.aspx",
+        "type": "current"
+    },
+    {
+        "name": "decree_123_2021",
+        "url": "https://thuvienphapluat.vn/van-ban/Giao-thong-Van-tai/Nghi-dinh-123-2021-ND-CP-sua-doi-Nghi-dinh-100-2019-ND-CP-489282.aspx",
+        "type": "current"
+    }
+]
+
+def crawl_multiple_documents():
+    print("START MULTI-CRAWL PIPELINE")
+
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
-        
-        # Thiết lập User-Agent để tránh bị hệ thống chặn
         context = browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
         )
+
         page = context.new_page()
-        
-        target_url = "https://thuvienphapluat.vn/van-ban/Giao-thong-Van-tai/Luat-giao-thong-duong-bo-2008-23-2008-QH12-82203.aspx"
-        
-        try:
-            print(f"Navigating to: {target_url}")
-            page.goto(target_url, wait_until="domcontentloaded", timeout=60000)
 
-            # Đợi 7 giây để JavaScript render nội dung vào thẻ div.content1
-            print("Rendering page content, please wait...")
-            time.sleep(7)
+        for doc in DOCUMENTS:
+            print(f"\n--- Crawling: {doc['name']} ---")
 
-            law_content_locator = page.locator(".content1").first
+            try:
+                page.goto(doc["url"], wait_until="domcontentloaded", timeout=60000)
+                time.sleep(5)
 
-            if law_content_locator.is_visible():
-                raw_text = law_content_locator.inner_text()
-                
-                if len(raw_text) > 500:
-                    base_dir = os.path.dirname(os.path.abspath(__file__))
-                    output_path = os.path.join(base_dir, "..", "data", "raw", "road_traffic_law_2008_raw_data.txt")
-                    
-                    with open(output_path, "w", encoding="utf-8") as f:
-                        f.write(raw_text)
-                    
-                    print(f"SUCCESS: Data ingested into {output_path}")
-                    print(f"Total characters captured: {len(raw_text)}")
+                content = page.locator(".content1").first
+
+                if content.is_visible():
+                    raw_text = content.inner_text()
+
+                    if len(raw_text) > 500:
+                        #build folder path theo type
+                        folder_path = os.path.join(base_dir, "..", "data", "raw", doc["type"])
+                        
+                        os.makedirs(folder_path, exist_ok=True)
+
+                        file_path = os.path.join(folder_path, f"{doc['name']}.txt")
+
+                        with open(file_path, "w", encoding="utf-8") as f:
+                            f.write(raw_text)
+
+                        print(f"Saved: {file_path}")
+                    else:
+                        print("Content too short")
+
                 else:
-                    print("ERROR: Content is too short. Something went wrong during rendering.")
-            else:
-                print("ERROR: Could not find the '.content1' container.")
+                    print("Cannot find content")
 
-        except Exception as e:
-            print(f"Runtime Error: {e}")
-        
-        finally:
-            print("Closing browser...")
-            browser.close()
+            except Exception as e:
+                print(f"Error: {e}")
+
+        browser.close()
+        print("\n DONE ALL DOCUMENTS")
 
 if __name__ == "__main__":
-    crawl_legal_ai_vn()
+    crawl_multiple_documents()
