@@ -5,18 +5,19 @@ from retrieval.rrf import rrf
 from config.settings import TOP_K, TOP_K_RETRIEVE
 
 def hybrid_search(query, df, bm25, faiss_index):
+
+    bm25_rank = search_bm25(bm25, query) 
+
     query_vec = embed_text([query])
 
-    bm25_rank = search_bm25(bm25, query)
-    faiss_rank = search_faiss(faiss_index, query_vec, TOP_K_RETRIEVE)
+    faiss_rank = search_faiss(faiss_index, query_vec, TOP_K)
 
     final_rank = rrf([bm25_rank, faiss_rank])
 
-    top = final_rank[:TOP_K]
+    top = final_rank[:TOP_K_RETRIEVE]
 
-    print("\n🔎 TOP RESULTS:")
+    results = []
     for idx, score in top:
-        print(df.iloc[idx]["chunk_text"][:200])
-        print("-----")
-
-    return [df.iloc[idx]["chunk_text"] for idx, _ in top]
+        results.append(int(idx))
+        
+    return results

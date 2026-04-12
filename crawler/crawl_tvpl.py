@@ -23,6 +23,14 @@ DOCUMENTS = [
         "name": "decree_123_2021",
         "url": "https://thuvienphapluat.vn/van-ban/Vi-pham-hanh-chinh/Nghi-dinh-123-2021-ND-CP-sua-doi-Nghi-dinh-xu-phat-vi-pham-hanh-chinh-linh-vuc-hang-hai-477975.aspx",
         "type": "current"
+    },
+    {
+
+        "name": "decree_168_2024",
+
+        "url": "https://thuvienphapluat.vn/van-ban/Giao-thong-Van-tai/Nghi-dinh-168-2024-ND-CP-xu-phat-vi-pham-hanh-chinh-an-toan-giao-thong-duong-bo-619502.aspx",
+
+        "type": "current"
     }
 ]
 
