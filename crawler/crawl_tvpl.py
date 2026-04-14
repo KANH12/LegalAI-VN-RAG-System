@@ -5,24 +5,14 @@ import os
 #1. List documents
 DOCUMENTS = [
     {
-        "name": "law_2008",
-        "url": "https://thuvienphapluat.vn/van-ban/Giao-thong-Van-tai/Luat-giao-thong-duong-bo-2008-23-2008-QH12-82203.aspx",
+        "name": "law_2024A",
+        "url": "https://thuvienphapluat.vn/van-ban/Giao-thong-Van-tai/Luat-Duong-bo-2024-588811.aspx",
         "type": "base"
     },
     {
-        "name": "law_2024",
+        "name": "law_2024B",
         "url": "https://thuvienphapluat.vn/van-ban/Giao-thong-Van-tai/Luat-trat-tu-an-toan-giao-thong-duong-bo-2024-so-36-2024-QH15-444251.aspx",
-        "type": "current"
-    },
-    {
-        "name": "decree_100_2019",
-        "url": "https://thuvienphapluat.vn/van-ban/Vi-pham-hanh-chinh/Nghi-dinh-100-2019-ND-CP-xu-phat-vi-pham-hanh-chinh-linh-vuc-giao-thong-duong-bo-va-duong-sat-426369.aspx",
-        "type": "current"
-    },
-    {
-        "name": "decree_123_2021",
-        "url": "https://thuvienphapluat.vn/van-ban/Vi-pham-hanh-chinh/Nghi-dinh-123-2021-ND-CP-sua-doi-Nghi-dinh-xu-phat-vi-pham-hanh-chinh-linh-vuc-hang-hai-477975.aspx",
-        "type": "current"
+        "type": "base"
     },
     {
 
