@@ -10,7 +10,7 @@ from retrieval.bm25 import build_bm25
 # load data
 df = pd.read_parquet(DATA_PATH)
 
-texts = df["chunk_text"].tolist()
+texts = df["chunk_text"].astype(str).tolist()
 
 # embedding
 load_model(EMBED_MODEL)
