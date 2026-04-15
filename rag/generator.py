@@ -11,51 +11,61 @@ def generate_answer(query, contexts, intent):
     if not contexts:
         return "Không tìm thấy thông tin phù hợp trong cơ sở dữ liệu luật giao thông."
 
-    # 1. FIX LỖI DICTIONARY: Phải dùng dấu { "key": "value" }
-    intent_instructions = {
-        "xử phạt": "Tìm chính xác hành vi vi phạm và số tiền phạt. Ưu tiên mức phạt mới nhất từ Nghị định 123.",
-        "None": "Tìm chính xác hành vi vi phạm và số tiền phạt dựa trên ngữ cảnh.",
-        "giải thích": "Giải thích chi tiết các quy định pháp luật liên quan."
-    }
-
-    # Lấy chỉ dẫn, ép kiểu intent về string cho chắc
-    specific_instruction = intent_instructions.get(str(intent), "Trả lời chính xác mức phạt và điều khoản.")
+    if isinstance(contexts, list):
+        context_text = "\n\n---\n\n".join(contexts[:3])
+    else:
+        context_text = str(contexts)
 
     try:
-        if isinstance(contexts, list):
-            clean_contexts = [c[:1000] for c in contexts[:5]]
-            context_text = "\n\n---\n\n".join(clean_contexts)
-        else:
-            context_text = str(contexts)[:4000] 
-
         messages = [
         {
-            "role": "system", 
-            "content": (
-                "Bạn là chuyên gia luật giao thông. \n"
-                "NHIỆM VỤ: Giải thích ngắn gọn và Tìm mức phạt phù hợp nhất với ngữ cảnh câu hỏi.\n"
-                "LƯU Ý: \n"
-                "Đảm bảo câu trả lời có sự giống nhau về mặt ngữ nghĩa với câu hỏi ngữ cảnh\n"
-                "CHỈ trả lời những gì có trong văn bản, trích dẫn đúng Điều, Khoản. TUYỆT ĐỐI không tự tạo ra câu trả lời.\n"
-                "Nếu không tìm được những tài liệu nào liên quan cứ nói là Không tìm thấy nguồn dữ liệu phù hợp"
-            )
+            "role": "system",
+            "content": """
+            Bạn là chuyên gia luật giao thông Việt Nam. 
+            Đầu tiên hãy viết lại câu hỏi sang câu hỏi theo thuật ngữ của pháp luật và dùng nó để tìm dữ liệu trong context và không tự ý bịa
+
+            NHIỆM VỤ:
+            1. Xác định TẤT CẢ hành vi vi phạm trong câu hỏi
+            2. Với mỗi hành vi:
+            - Trích Điều, Khoản
+            - Đưa mức phạt
+            3. Nếu có nhiều hành vi → PHẢI cộng tổng tiền
+
+            QUY TẮC:
+            - Chỉ dùng dữ liệu trong context
+            - Không tự bịa
+            - Nếu không có → trả lời: "Không tìm thấy nguồn phù hợp"
+
+            FORMAT:
+            1. Hành vi: ...
+            - Điều: ...
+            - Mức phạt: ...
+
+            2. Hành vi (nếu có thêm, không được trùng với hành vi trước đó): ...
+            - Điều: ...
+            - Mức phạt: ...
+
+            Tổng tiền (nếu có): ...
+            """
         },
         {
-            "role": "user", 
-            "content": f"Ngữ cảnh:\n{context_text}\n\nCâu hỏi: {query}\n\nTrả lời ngay mức phạt và điều khoản."
+            "role": "user",
+            "content": f"""
+            Ngữ cảnh: {context_text}
+
+            Câu hỏi: {query}
+            """
         }
         ]
 
         res = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=messages,
-            temperature=0.2
+            temperature=0.0
         )
-        return res.choices[0].message.content.strip()
-    
-    except Exception as e:
-        print(f"Lỗi Generator cụ thể: {e}")
 
-        if isinstance(contexts, list) and len(contexts) > 0:
-            return f"Hệ thống đang quá tải (TPM), nhưng dữ liệu tìm thấy có nhắc đến: {contexts[0][:200]}..."
-        return "Xin lỗi, hệ thống gặp lỗi khi tạo câu trả lời."
+        return res.choices[0].message.content.strip()
+
+    except Exception as e:
+        print("Generator lỗi:", e)
+        return "Hệ thống lỗi khi tạo câu trả lời."

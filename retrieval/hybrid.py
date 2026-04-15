@@ -23,8 +23,12 @@ def hybrid_search(query, df, bm25, faiss_index):
         row = df.iloc[idx]
         v = row.get("violation_type")
 
-        if v and v in query.lower():
-            score += 0.5  
+        if isinstance(v, str) and v.strip():
+            v_clean = v.lower()
+            q_clean = query.lower()
+            
+            if v_clean in q_clean or any(word in q_clean for word in v_clean.split()):
+                score += 0.5
 
         boosted.append((idx, score))
 

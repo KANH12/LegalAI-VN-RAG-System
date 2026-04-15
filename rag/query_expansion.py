@@ -72,7 +72,7 @@ def expand_query(query):
         res = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.2
+            temperature=0.1
         )
 
         rewritten = res.choices[0].message.content.strip()

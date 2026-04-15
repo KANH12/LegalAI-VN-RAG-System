@@ -16,40 +16,36 @@ def rerank(query, contexts):
     )
 
     prompt = f"""
-    You are a legal assistant specializing in Vietnamese Traffic Law.
-    
-    Query: {query}
+    Bạn là chuyên gia luật giao thông Việt Nam.
 
-    Contexts:
-    {context_str}
+    Câu hỏi: {query}
 
-    Task:
-    Select the TOP 3 most relevant context indices that directly answer the query.
-    
-    Rules:
-    - Only return indices separated by commas (e.g., 0,2,4).
-    - If fewer than 3 are relevant, return only those.
-    - Strictly no explanation or additional text.
+    Danh sách ngữ cảnh: {context_str}
+
+    Nhiệm vụ:
+    - Chọn tối đa 3 ngữ cảnh liên quan nhất đến câu hỏi
+    - Ưu tiên:
+        + Có hành vi vi phạm giống câu hỏi
+        + Có mức phạt
+
+    Chỉ trả về danh sách index, ví dụ:
+    0,2,3
     """
 
     try:
         res = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[{"role": "user", "content": prompt}],
-            temperature=1  
+            temperature=0  
         )
-        
+
         output = res.choices[0].message.content.strip()
-        
+
         indices = [int(i) for i in re.findall(r'\d+', output)]
-        
-        valid_indices = [i for i in indices if i < len(contexts)]
-        
-        if valid_indices:
-            return [contexts[i] for i in valid_indices[:3]]
-        else:
-            return contexts[:3]
-    
+        indices = [i for i in indices if i < len(contexts)]
+
+        return [contexts[i] for i in indices[:3]] if indices else contexts[:3]
+
     except Exception as e:
-        print(f"Rerank failed: {e} → fallback to top 3")
+        print(f"Rerank lỗi: {e}")
         return contexts[:3]
