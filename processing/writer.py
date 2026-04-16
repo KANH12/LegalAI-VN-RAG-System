@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from processing.parse import parse_law_text
+from processing.parse import parse_law_text, detect_doc_type
 from processing.chunking import build_chunk_text
 
 def create_law_key(row):
@@ -18,7 +18,7 @@ def process_all_files():
             if file.endswith(".txt"):
                 file_path = os.path.join(root, file)
                 document_name = file.replace(".txt", "")
-                print(f" Processing: {document_name}")
+                print(f"--> Processing: {document_name}")
                 parsed = parse_law_text(file_path, document_name)
                 all_data.extend(parsed)
 
@@ -30,12 +30,11 @@ def process_all_files():
     df["chunk_text"] = df.apply(build_chunk_text, axis=1)
     df["law_key"] = df.apply(create_law_key, axis=1)
 
-    # ===== LOGIC OVERCOMING OLD LAWS =====
-    old_mask = df["document_name"].str.contains(r"law_2024A|law2024B", regex=True, na=False)
-    new_mask = df["document_name"].str.contains("168", na=False)
-    nd168_keys = df[new_mask]["law_key"].unique()
+    # ===== LOGIC OVERRIDE =====
+    is_nd168 = df["document_name"].str.contains("168", na=False)
+    nd168_keys = df[is_nd168]["law_key"].unique()
     
-    df = df[~(old_mask & df["law_key"].isin(nd168_keys))]
+    df = df[~((df["doc_type"] == "decree") & (~is_nd168) & (df["law_key"].isin(nd168_keys)))]
 
     # ===== DEDUP & ID =====
     df = df.drop_duplicates(subset=["chunk_text"])
@@ -48,7 +47,7 @@ def process_all_files():
     df.to_parquet(os.path.join(output_dir, "laws.parquet"), index=False)
     df.to_json(os.path.join(output_dir, "laws.json"), orient="records", force_ascii=False, indent=2)
 
-    print(f" DONE: Total {len(df)} chunks processed.")
+    print(f"DONE: Total {len(df)} chunks processed.")
 
 if __name__ == "__main__":
     process_all_files()

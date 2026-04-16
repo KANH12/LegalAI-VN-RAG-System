@@ -10,13 +10,14 @@ def build_chunk_text(row):
         article_str += f" ({row['article_title']})"
     parts.append(article_str)
 
-    if pd.notna(row.get("clause")):
-        parts.append(f"Khoản {row['clause']}")
-    if pd.notna(row.get("point")):
-        parts.append(f"Điểm {row['point']}")
+    if pd.notna(row.get("clause")): parts.append(f"Khoản {row['clause']}")
+    if pd.notna(row.get("point")): parts.append(f"Điểm {row['point']}")
 
-    if pd.notna(row.get("violation_type")):
-        parts.append(f"Hành vi: {row['violation_type']}")
+    v_type = row.get("violation_type")
+    if pd.notna(v_type):
+        prefix = "Hành vi" if row["doc_type"] == "decree" else "Khái niệm/Quy định"
+        parts.append(f"{prefix}: {v_type}")
+        
     if pd.notna(row.get("penalty")):
         parts.append(f"Mức phạt: {row['penalty']}")
 
