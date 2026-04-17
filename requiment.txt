@@ -6,3 +6,4 @@ pip install rank-bm25
 pip install groq
 pip install python-dotenv
 pip install rapidfuzz
+pip install thefuzz

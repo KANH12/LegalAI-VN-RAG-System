@@ -11,22 +11,38 @@ def detect_doc_type(document_name):
 
 # ===== EXTRACT CONCEPT (4 TYPES) =====
 def extract_concept(text, article_title):
+    if not text: 
+        return article_title
+    
     text_clean = re.sub(r"^\d+[\.\s]+|[a-zđ]\)\s*", "", text).strip()
     text_lower = text_clean.lower()
     
-    split_keywords = [" là ", " bao gồm:", " bao gồm ", " như sau:", " như sau"]
-    
+    split_keywords = [" là ", " bao gồm:", " bao gồm "]
     for kw in split_keywords:
         if kw in text_lower:
             idx = text_lower.find(kw)
             concept = text_clean[:idx].strip()
-            if len(concept) > 2:
-                return concept
+            if 2 < len(concept) and len(concept.split()) < 15:
+                return concept.strip(' :;,.“”"\'')
 
-    if "giải thích từ ngữ" in article_title.lower():
-        words = text_clean.split()
+    if "sau đây" in text_lower:
+        idx = text_lower.find("sau đây")
+        concept = text_clean[:idx].strip()
+        stop_words = ["như sau", "các loại", "quy định", "trách nhiệm"]
+        for sw in stop_words:
+            concept = re.sub(rf"\b{sw}\b", "", concept, flags=re.IGNORECASE).strip()
+        return concept.strip(' :;,.“”"\'')
+
+    if "giải thích từ ngữ" not in article_title.lower():
+        first_sentence = text_clean.split('.')[0]
+        if 3 < len(first_sentence.split()) < 12:
+            return first_sentence.strip(' :;,.“”"\'')
+        return article_title 
+
+    words = text_clean.split()
+    if len(words) > 0:
         return " ".join(words[:6]) + "..." if len(words) > 6 else text_clean
-        
+    
     return article_title
 
 # ===== EXTRACT PENALTY (DECREE) =====

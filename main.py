@@ -3,6 +3,7 @@ import pickle
 import faiss
 import os
 
+from thefuzz import fuzz
 from config.settings import *
 from retrieval.embedding import load_model
 from retrieval.hybrid import hybrid_search
@@ -25,7 +26,7 @@ matcher = ViolationMatcher()
 load_model(EMBED_MODEL)
 
 # ===== HELPER =====
-def clean_text(text, max_len=1500):
+def clean_text(text, max_len=1000): 
     text = str(text).strip().replace("\n", " ")
     return text[:max_len]
 
@@ -39,72 +40,130 @@ def rag_system(query):
         extracted_vehicle = intent_data.get("vehicle", "chung")
 
         expanded_contexts = []
+        is_insufficient = True 
         
-        # ===== STEP 2: MATCH LAYER (PRIORITY #1) =====
+       # ===== STEP 2: MATCH LAYER (PRIORITY #1) =====
         print(f"\n[PIPELINE] 1. Executing Match Layer for: '{extracted_violation}'...")
         matched_rows = matcher.search(extracted_violation, vehicle_type=extracted_vehicle)
         
-        if matched_rows:
-            print(f"   => [SUCCESS] Match Layer found {len(matched_rows)} exact records!")
-            # Group matched rows into context
-            matched_text = " ".join([str(r['chunk_text']) for r in matched_rows])
-            expanded_contexts.append(clean_text(matched_text))
-        else:
-            print(f"   => [NOT FOUND] Match Layer returned no results for this violation type.")
+        is_insufficient = True 
+        query_expanded = query
 
-        # ===== STEP 3: HYBRID SEARCH (FALLBACK / AUGMENTATION) =====
-        # Fallback if Match Layer failed or returned insufficient context
-        if not expanded_contexts or len(expanded_contexts) < 1:
-            print(f"[PIPELINE] 2. Executing Hybrid Search (FAISS + BM25) fallback...")
+        if matched_rows:
             
-            query_expanded = expand_query(query)
+            # --- CALCULATE & SORT SCORE ---
+            for r in matched_rows:
+                if r.get('score', 0) == 0: 
+                    actual_text = str(r.get('chunk_text', ''))
+                    r['score'] = fuzz.token_set_ratio(extracted_violation, actual_text)
+            
+            #high score
+            matched_rows = sorted(matched_rows, key=lambda x: x.get('score', 0), reverse=True)
+            top_score = matched_rows[0].get('score', 0)
+            
+            print(f"   => [SUCCESS] Match Layer found {len(matched_rows)} records! (Top Score: {top_score}%)")
+            
+            #FILTER TOP SCORE
+            if top_score < 60.0:
+                print(f"   => [REJECTED] Match score too low. Forcing Hybrid Search...")
+                is_insufficient = True
+            else:
+                penalty_contexts, concept_contexts = [], []
+                
+                for r in matched_rows:
+                    if r.get('score', 0) < 65.0: continue
+                    
+                    dtype = r.get('doc_type')
+                    content = clean_text(str(r.get('chunk_text', '')))
+                    
+                    if dtype == 'decree':
+                        penalty_contexts.append(content)
+                    else:
+                        concept_contexts.append(content)
+                
+                if top_score >= 90.0:
+                    if intent == 'penalty' and len(penalty_contexts) > 0:
+                        is_insufficient = False
+                    elif intent in ['definition', 'general'] and len(concept_contexts) > 0:
+                        is_insufficient = False
+                
+                if is_insufficient:
+                    print(f"   => [LOW CONFIDENCE] Score {top_score}% < 90% hoặc thiếu loại tài liệu cần thiết.")
+                
+                final_match_blocks = []
+                if concept_contexts: final_match_blocks.append("### PRIMARY LEGAL CONCEPTS:\n" + "\n".join(concept_contexts))
+                if penalty_contexts: final_match_blocks.append("### PRIMARY FINES & VIOLATIONS:\n" + "\n".join(penalty_contexts))
+                
+                if final_match_blocks:
+                    expanded_contexts.append("\n\n".join(final_match_blocks))
+                
+                if not is_insufficient:
+                    print(f"   => [OPTIMIZED] High confidence match. Skipping Hybrid Search.")
+        else:
+            print(f"   => [NOT FOUND] Match Layer returned no results.")
+
+        # ===== STEP 3: HYBRID SEARCH (ONLY IF INSUFFICIENT) =====
+        if is_insufficient:
+            reason = "low confidence match" if matched_rows else "no match found"
+            print(f"[PIPELINE] 2. Executing Hybrid Search (FAISS + BM25) due to {reason}...")
+            
+            # Tối ưu query cho ca Tai nạn/Chết người nếu cần
+            if any(word in query for word in ["chết", "tử vong", "tai nạn"]):
+                query_expanded = query + " mức phạt trách nhiệm hình sự gây hậu quả nghiêm trọng"
+            else:
+                query_expanded = expand_query(query)
+                
             top_indices = hybrid_search(query_expanded, df, bm25, faiss_index)
 
             if top_indices:
-                print(f"   => [HIT] Hybrid Search retrieved {len(top_indices)} relevant chunks.")
+                top_indices = top_indices[:3] 
                 seen_articles = set()
+                hybrid_contexts = []
+                
                 for idx in top_indices:
                     idx = int(idx)
-                    try:
-                        current_row = df.iloc[idx]
+                    try: current_row = df.iloc[idx]
                     except: continue
 
-                    article = current_row.get('article')
-                    doc_name = current_row.get('document_name', '')
+                    article, doc_name = current_row.get('article'), current_row.get('document_name', '')
                     article_key = f"{doc_name}_{article}"
 
                     if article and doc_name and article_key not in seen_articles:
                         article_rows = df[(df['article'] == article) & 
-                                          (df['document_name'] == doc_name)].sort_index().head(10)
+                                          (df['document_name'] == doc_name)].sort_index().head(5)
                         
                         full_text = " ".join(article_rows["chunk_text"].astype(str).values)
-                        expanded_contexts.append(clean_text(full_text))
+                        hybrid_contexts.append(clean_text(full_text))
                         seen_articles.add(article_key)
-                print(f"   => Context expanded from {len(seen_articles)} related legal articles.")
-            else:
-                print(f"   => [FAILED] Hybrid Search could not find any relevant data.")
-        else:
-            print(f"[PIPELINE] 2. Match Layer results found -> Skipping Hybrid Search for optimization.")
-            query_expanded = query
+                
+                if hybrid_contexts:
+                    expanded_contexts.append("### SUPPLEMENTARY LEGAL DATA:\n" + "\n\n".join(hybrid_contexts))
+                print(f"   => Context expanded from {len(seen_articles)} related articles.")
 
-        # ===== STEP 4: RERANK & FILTER =====
-        expanded_contexts = list(dict.fromkeys(expanded_contexts))[:5] # Dedup & Limit
+        # ===== STEP 4: RERANK & FINAL TRIMMING =====
+        expanded_contexts = list(dict.fromkeys(expanded_contexts))
 
         if not expanded_contexts:
             return "Không tìm thấy thông tin phù hợp trong cơ sở dữ liệu pháp luật."
 
         try:
             refined_contexts = rerank(query, expanded_contexts)
+            refined_contexts = refined_contexts[:2] 
         except Exception as e:
             print(f"[WARN] Rerank fail: {e}")
             refined_contexts = expanded_contexts[:2]
+
+        # --- TOKEN SAFETY SHIELD (Use for Groq Limit 6000) ---
+        context_for_llm = "\n\n".join(refined_contexts)
+        if len(context_for_llm) > 15000:
+            context_for_llm = context_for_llm[:15000] + "... [Dữ liệu được cắt gọn để tối ưu]"
 
         # ===== DEBUG =====
         print(f"[DEBUG] INTENT: {intent}")
         print(f"[DEBUG] VEHICLE: {extracted_vehicle}")
 
         # ===== STEP 5: GENERATE =====
-        answer = generate_answer(query, refined_contexts, intent)
+        answer = generate_answer(query, [context_for_llm], intent)
         return answer
 
     except Exception as e:

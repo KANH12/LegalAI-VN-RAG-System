@@ -33,7 +33,6 @@ class ViolationMatcher:
         norm_unique_map = {self._normalize(v): v for v in self.unique_violations}
         norm_list = list(norm_unique_map.keys())
 
-        # 3. Thử Exact Match trên bản đã chuẩn hóa
         if norm_query in norm_list:
             original_text = norm_unique_map[norm_query]
             print(f"   [MATCH] Exact match (normalized) for: {original_text[:50]}...")
