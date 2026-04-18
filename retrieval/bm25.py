@@ -6,7 +6,6 @@ def tokenize(text):
     text = text.lower()
     text = re.sub(r"[^\w\s]", " ", text)
 
-    # giữ phrase quan trọng
     tokens = text.split()
 
     return tokens
