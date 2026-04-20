@@ -130,6 +130,7 @@ def rag_system(query):
                     article, doc_name = current_row.get('article'), current_row.get('document_name', '')
                     article_key = f"{doc_name}_{article}"
 
+                    #Cover full content
                     if article and doc_name and article_key not in seen_articles:
                         article_rows = df[(df['article'] == article) & 
                                           (df['document_name'] == doc_name)].sort_index().head(5)

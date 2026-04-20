@@ -22,9 +22,6 @@ class ViolationMatcher:
         return " ".join(text.split())
 
     def search(self, query_violation, vehicle_type="chung", threshold=75):
-        """
-        Tìm kiếm hành vi với cơ chế Normalization để trị dấu ngoặc kép.
-        """
         if not query_violation:
             return None
 

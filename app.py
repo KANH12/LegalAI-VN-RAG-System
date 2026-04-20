@@ -91,7 +91,7 @@ with col_main:
         # Assistant Message
         with st.chat_message("assistant", avatar="⚖️"):
             with st.status("🔍 Đang truy vấn hệ thống dữ liệu...", expanded=True) as status:
-                st.write("1️⃣ Phân tích Intent và thực thể...")
+                st.write("1️⃣ Đang phân tích câu hỏi...")
                 
                 start_time = time.time()
                 result = rag_system(query) 
