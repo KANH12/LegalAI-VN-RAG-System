@@ -14,21 +14,27 @@ def extract_concept(text, article_title):
     if not text: 
         return article_title
     
+    text_clean = text.replace('\n', ' ')
     text_clean = re.sub(r"^\d+[\.\s]+|[a-zđ]\)\s*", "", text).strip()
     text_lower = text_clean.lower()
     
-    split_keywords = [" là ", " bao gồm:", " bao gồm "]
+    split_keywords = [" là ", " bao gồm:", " bao gồm ", "như sau:"]
     for kw in split_keywords:
         if kw in text_lower:
             idx = text_lower.find(kw)
             concept = text_clean[:idx].strip()
             if 2 < len(concept) and len(concept.split()) < 15:
                 return concept.strip(' :;,.“”"\'')
-
+            
+    if ":" in text_clean:
+        candidate = text_clean.split(":")[0].strip()
+        if len(candidate.split()) < 10:
+            return candidate.strip(' :;,.“”"\'')
+    
     if "sau đây" in text_lower:
         idx = text_lower.find("sau đây")
         concept = text_clean[:idx].strip()
-        stop_words = ["như sau", "các loại", "quy định", "trách nhiệm"]
+        stop_words = ["như sau", "các loại", "trách nhiệm"]
         for sw in stop_words:
             concept = re.sub(rf"\b{sw}\b", "", concept, flags=re.IGNORECASE).strip()
         return concept.strip(' :;,.“”"\'')
@@ -55,8 +61,6 @@ def extract_penalty(text):
     return match.group(0) if match else None
 
 # ===== EXTRACT VIOLATION (DECREE) =====
-import re
-
 def extract_violation(text):
     if not text: return None
 
@@ -161,7 +165,7 @@ def parse_law_text(file_path, document_name):
                         if len(p_content) < 10: continue
 
                         if doc_type == "law_concept":
-                            v_final = f"{v_type}: {p_content.split('.')[0]}"
+                            v_final = v_type
                             p_final = None
                         else:
                             p_final = p_val if (is_parent and p_val) else extract_penalty(p_content)
